@@ -38,10 +38,7 @@ export class UsersService {
   }
 
   update(id: string, updateUserDto: UpdateUserDto) {
-    const user = this.users.find((user) => user.id === id);
-
-    if (!validate(id)) throw new BadRequestException('Invalid id');
-    if (!user) throw new NotFoundException(`User with id ${id} not found`);
+    const user = this.findOne(id);
     if (user.password !== updateUserDto.oldPassword)
       throw new ForbiddenException('Invalid password');
 
@@ -63,7 +60,6 @@ export class UsersService {
   }
 
   remove(id: string) {
-    if (!validate(id)) throw new BadRequestException('Invalid id');
     this.findOne(id); // check if user exists
     this.users = this.users.filter((user) => user.id !== id);
   }
