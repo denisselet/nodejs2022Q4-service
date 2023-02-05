@@ -57,6 +57,9 @@ export class UsersService {
       }
       return user;
     });
+
+    const { password, ...args } = user;
+    return { id, ...args };
   }
 
   remove(id: string) {
