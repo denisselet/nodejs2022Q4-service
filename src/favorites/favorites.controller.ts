@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Param, Delete } from '@nestjs/common';
+import { Controller, Get, Post, Param, Delete, HttpCode } from '@nestjs/common';
 import { FavoritesService } from './favorites.service';
 
 @Controller('favs')
@@ -16,6 +16,7 @@ export class FavoritesController {
   }
 
   @Delete(':attribute/:id')
+  @HttpCode(204)
   deleteAttribute(
     @Param('attribute') attribute: string,
     @Param('id') id: string,

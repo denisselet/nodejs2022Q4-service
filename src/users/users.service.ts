@@ -15,7 +15,7 @@ import { db } from 'src/store/db';
 export class UsersService {
   create(createUserDto: CreateUserDto): User {
     const id = uuidv4();
-    const version = 0;
+    const version = 1;
     const login = createUserDto.login;
     const createdAt = Date.now();
     const updatedAt = Date.now();
@@ -50,12 +50,11 @@ export class UsersService {
     }
 
     user.password = updateUserDto.newPassword;
-
-    db.users.updateUser(id, {
-      ...user,
-      version: user.version + 1,
-      updatedAt: Date.now(),
-    });
+    user.version = user.version + 1;
+    user.updatedAt = Date.now();
+    userWithoutPassword.version = user.version;
+    userWithoutPassword.updatedAt = user.updatedAt;
+    db.users.updateUser(id, user);
 
     return userWithoutPassword;
   }

@@ -55,20 +55,21 @@ export class FavoritesService {
 
   deleteAttribute(attribute: string, id: string): void {
     switch (attribute) {
-      case 'tracks':
+      case 'track':
         if (!validate(id)) throw new BadRequestException('Invalid ID');
-        const trackExist = db.favorites.checkFavorite('tracks', id);
+        const trackExist = db.tracks.getTrack(id);
         if (!trackExist) throw new NotFoundException(`Track ${id} not found`);
         db.favorites.deleteFavorite('tracks', id);
-      case 'artists':
+        break;
+      case 'artist':
         if (!validate(id)) throw new BadRequestException('Invalid ID');
-        const artistExist = db.favorites.checkFavorite('artists', id);
+        const artistExist = db.artists.getArtist(id);
         if (!artistExist) throw new NotFoundException(`Artist ${id} not found`);
         db.favorites.deleteFavorite('artists', id);
         break;
-      case 'albums':
+      case 'album':
         if (!validate(id)) throw new BadRequestException('Invalid ID');
-        const albumExist = db.favorites.checkFavorite('albums', id);
+        const albumExist = db.albums.getAlbum(id);
         if (!albumExist) throw new NotFoundException(`Album ${id} not found`);
         db.favorites.deleteFavorite('albums', id);
         break;
