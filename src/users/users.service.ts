@@ -9,58 +9,59 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import { v4 as uuidv4 } from 'uuid';
 import { validate } from 'uuid';
 import { User } from './entities/user.entity';
+import { db } from 'src/store/db';
 
 @Injectable()
 export class UsersService {
-  private users: User[] = [];
-
   create(createUserDto: CreateUserDto): User {
     const id = uuidv4();
-    // const id = '1';
     const version = 0;
     const login = createUserDto.login;
     const createdAt = Date.now();
     const updatedAt = Date.now();
-    this.users.push({ ...createUserDto, id, version, createdAt, updatedAt });
+    db.users.addUser({ ...createUserDto, id, version, createdAt, updatedAt });
     return { id, login, version, createdAt, updatedAt };
   }
 
   findAll(): User[] {
-    return this.users;
+    const users = db.users.getUsers();
+    return users.reduce((acc, user) => {
+      const { password, ...userWithoutPassword } = user;
+      return [...acc, userWithoutPassword];
+    }, []);
   }
 
   findOne(id: string): User {
     if (!validate(id)) throw new BadRequestException('Invalid id');
-    const user = this.users.find((user) => user.id === id);
+    const user = db.users.getUser(id);
     if (!user) throw new NotFoundException(`User with id ${id} not found`);
 
-    return user;
+    const { password, ...userWithoutPassword } = user;
+    return userWithoutPassword;
   }
 
   update(id: string, updateUserDto: UpdateUserDto) {
-    const user = this.findOne(id);
-    if (user.password !== updateUserDto.oldPassword)
+    if (!validate(id)) throw new BadRequestException('Invalid id');
+    const user = db.users.getUser(id);
+    if (!user) throw new NotFoundException(`User with id ${id} not found`);
+    const { password, ...userWithoutPassword } = user;
+    if (user.password != updateUserDto.oldPassword) {
       throw new ForbiddenException('Invalid password');
+    }
 
     user.password = updateUserDto.newPassword;
 
-    this.users = this.users.map((user) => {
-      if (user.id === id) {
-        return {
-          ...user,
-          version: user.version + 1,
-          updatedAt: Date.now(),
-        };
-      }
-      return user;
+    db.users.updateUser(id, {
+      ...user,
+      version: user.version + 1,
+      updatedAt: Date.now(),
     });
 
-    const { password, ...args } = user;
-    return { id, ...args };
+    return userWithoutPassword;
   }
 
   remove(id: string) {
-    this.findOne(id); // check if user exists
-    this.users = this.users.filter((user) => user.id !== id);
+    this.findOne(id);
+    db.users.deleteUser(id);
   }
 }

@@ -8,24 +8,24 @@ import { UpdateTrackDto } from './dto/update-track.dto';
 import { Track } from './entities/track.entity';
 import { validate } from 'uuid';
 import { v4 as uuidv4 } from 'uuid';
+import { db } from 'src/store/db';
 
 @Injectable()
 export class TracksService {
-  private tracks: Track[] = [];
   create(createTrackDto: CreateTrackDto) {
     const id = uuidv4();
     const track = { artistId: null, albumId: null, ...createTrackDto, id };
-    this.tracks.push(track);
+    db.tracks.addTrack(track);
     return track;
   }
 
   findAll() {
-    return this.tracks;
+    return db.tracks.getTracks();
   }
 
   findOne(id: string) {
     if (!validate(id)) throw new BadRequestException('Invalid id');
-    const track = this.tracks.find((track) => track.id === id);
+    const track = db.tracks.getTrack(id);
     if (!track) throw new NotFoundException(`Track with id ${id} not found`);
 
     return track;
@@ -33,20 +33,18 @@ export class TracksService {
 
   update(id: string, updateTrackDto: UpdateTrackDto) {
     const track = this.findOne(id);
-    this.tracks = this.tracks.map((track) => {
-      if (track.id === id) {
-        return {
-          ...track,
-          ...updateTrackDto,
-        };
-      }
-      return track;
+    db.tracks.updateTrack(id, {
+      ...track,
+      ...updateTrackDto,
     });
     return { ...track, ...updateTrackDto };
   }
 
   remove(id: string) {
+    const favorites = db.favorites.getFavoritesIds();
+    if (favorites.tracks.includes(id))
+      db.favorites.deleteFavorite('tracks', id);
     this.findOne(id);
-    this.tracks = this.tracks.filter((track) => track.id !== id);
+    db.tracks.deleteTrack(id);
   }
 }
