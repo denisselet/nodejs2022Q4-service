@@ -6,6 +6,7 @@
   "private": true,
   "license": "UNLICENSED",
   "scripts": {
+    "docker:scan": "docker scan denisselet/docker-basics-node && docker scan denisselet/docker-basics-postgres",
     "prebuild": "rimraf dist",
     "typeorm": "node ./node_modules/typeorm/cli -f ./src/ormconfig.js",
     "build": "nest build",

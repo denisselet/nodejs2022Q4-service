@@ -1,31 +1,25 @@
-# run db(for linux)
 
+install dependencies
 ```
-npm ci
-```
-up db
-```
-npx typeorm-ts-node-esm migration:run -d src/ormconfig.ts
-```
-down db
-```
-npx typeorm-ts-node-esm migration:revert -d src/ormconfig.ts
+npm i
 ```
 
 
-
+docker compose
 ```
-   sudo docker-compose up
+docker-compose up
 ```
-enter http://127.0.0.1:5050/
-login postgres@postgres.com
-pass postgres
 
+scan
+```
+npm run docker:scan
+```
 
-
-
-
-
+docker hub
+```
+docker pull den8rr/verse_gapminder1:firsttry
+docker pull den8rr/verse_gapminder1:secondtry
+```
 
 # Home Library Service
 
