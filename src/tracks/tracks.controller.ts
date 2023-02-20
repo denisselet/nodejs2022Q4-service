@@ -18,17 +18,17 @@ export class TracksController {
   constructor(private readonly tracksService: TracksService) {}
 
   @Post()
-  create(@Body() createTrackDto: CreateTrackDto): Track {
+  create(@Body() createTrackDto: CreateTrackDto): Promise<Track> {
     return this.tracksService.create(createTrackDto);
   }
 
   @Get()
-  findAll(): Track[] {
+  findAll() {
     return this.tracksService.findAll();
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string): Track {
+  findOne(@Param('id') id: string) {
     return this.tracksService.findOne(id);
   }
 
@@ -36,13 +36,13 @@ export class TracksController {
   update(
     @Param('id') id: string,
     @Body() updateTrackDto: UpdateTrackDto,
-  ): Track {
+  ): Promise<Track> {
     return this.tracksService.update(id, updateTrackDto);
   }
 
   @Delete(':id')
   @HttpCode(204)
-  remove(@Param('id') id: string): void {
+  remove(@Param('id') id: string): Promise<void> {
     return this.tracksService.remove(id);
   }
 }

@@ -8,59 +8,72 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { v4 as uuidv4 } from 'uuid';
 import { validate } from 'uuid';
-import { User } from './entities/user.entity';
-import { db } from 'src/store/db';
+import { UserEntity } from './entities/user.entity';
+import { Repository } from 'typeorm';
+import { InjectRepository } from '@nestjs/typeorm';
+import { uniqueDateNow } from './users.utils';
 
 @Injectable()
 export class UsersService {
-  create(createUserDto: CreateUserDto): User {
-    const id = uuidv4();
-    const version = 1;
-    const login = createUserDto.login;
-    const createdAt = Date.now();
-    const updatedAt = Date.now();
-    db.users.addUser({ ...createUserDto, id, version, createdAt, updatedAt });
-    return { id, login, version, createdAt, updatedAt };
+  constructor(
+    @InjectRepository(UserEntity)
+    private usersRepository: Repository<UserEntity>,
+  ) {}
+  async create(createUserDto: CreateUserDto) {
+    const userId = uuidv4();
+    const createdUser = this.usersRepository.create({
+      ...createUserDto,
+      id: userId,
+      version: 1,
+      createdAt: uniqueDateNow(),
+      updatedAt: uniqueDateNow(),
+    });
+    return (await this.usersRepository.save(createdUser)).toUser();
   }
 
-  findAll(): User[] {
-    const users = db.users.getUsers();
-    return users.reduce((acc, user) => {
-      const { password, ...userWithoutPassword } = user;
-      return [...acc, userWithoutPassword];
-    }, []);
+  async findAll() {
+    const users = await this.usersRepository.find();
+    return users.map((user) => user.toUser());
   }
 
-  findOne(id: string): User {
-    if (!validate(id)) throw new BadRequestException('Invalid id');
-    const user = db.users.getUser(id);
-    if (!user) throw new NotFoundException(`User with id ${id} not found`);
+  async findOne(userId: string) {
+    if (!validate(userId)) {
+      throw new BadRequestException('Invalid id');
+    }
+    const user = await this.usersRepository.findOne({ where: { id: userId } });
+    if (!user) throw new NotFoundException(`User with id ${userId} not found`);
 
-    const { password, ...userWithoutPassword } = user;
-    return userWithoutPassword;
+    return user.toUser();
   }
 
-  update(id: string, updateUserDto: UpdateUserDto) {
-    if (!validate(id)) throw new BadRequestException('Invalid id');
-    const user = db.users.getUser(id);
-    if (!user) throw new NotFoundException(`User with id ${id} not found`);
-    const { password, ...userWithoutPassword } = user;
-    if (user.password != updateUserDto.oldPassword) {
+  async update(userId: string, updateUserDto: UpdateUserDto) {
+    if (!validate(userId)) throw new BadRequestException('Invalid id');
+    const updateUser = await this.usersRepository.findOne({
+      where: { id: userId },
+    });
+    if (!updateUser)
+      throw new NotFoundException(`User with id ${userId} not found`);
+    if (updateUser.password != updateUserDto.oldPassword) {
       throw new ForbiddenException('Invalid password');
     }
-
-    user.password = updateUserDto.newPassword;
-    user.version = user.version + 1;
-    user.updatedAt = Date.now();
-    userWithoutPassword.version = user.version;
-    userWithoutPassword.updatedAt = user.updatedAt;
-    db.users.updateUser(id, user);
-
-    return userWithoutPassword;
+    Object.assign(updateUser, {
+      password: updateUserDto.newPassword,
+      version: updateUser.version + 1,
+      updatedAt: uniqueDateNow(),
+    });
+    return (await this.usersRepository.save(updateUser)).toUser();
   }
 
-  remove(id: string) {
-    this.findOne(id);
-    db.users.deleteUser(id);
+  async remove(id: string): Promise<void> {
+    if (!validate(id)) {
+      throw new BadRequestException('Invalid id');
+    }
+    const user = await this.usersRepository.findOne({ where: { id } });
+    if (!user) throw new NotFoundException(`User with id ${id} not found`);
+
+    const deleteUser = await this.usersRepository.delete(id);
+    if (deleteUser.affected === 0) {
+      throw new NotFoundException(`User with id ${id} not found`);
+    }
   }
 }

@@ -4,78 +4,107 @@ import {
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
-import { db } from 'src/store/db';
 import { validate } from 'uuid';
-import { Favorite } from './entities/favorite.entity';
+import { FavoriteEntity } from './entities/favorite.entity';
+import { Repository } from 'typeorm';
+import { InjectRepository } from '@nestjs/typeorm';
+import { TracksService } from 'src/tracks/tracks.service';
+import { AlbumsService } from 'src/albums/albums.service';
+import { ArtistsService } from 'src/artists/artists.service';
+import { attributes } from './constants';
+import { arrayIds } from './favorites.utils';
 
 @Injectable()
 export class FavoritesService {
-  findAll(): Favorite {
-    const tracks = db.tracks.getTracks();
-    const artists = db.artists.getArtists();
-    const albums = db.albums.getAlbums();
-    const favorites = db.favorites.getFavoritesIds();
-    return {
-      tracks: tracks.filter((track) => favorites.tracks.includes(track.id)),
-      artists: artists.filter((artist) =>
-        favorites.artists.includes(artist.id),
-      ),
-      albums: albums.filter((album) => favorites.albums.includes(album.id)),
-    };
+  constructor(
+    @InjectRepository(FavoriteEntity)
+    private favoriteRepository: Repository<FavoriteEntity>,
+
+    private tracksService: TracksService,
+    private albumsService: AlbumsService,
+    private artistsService: ArtistsService,
+  ) {}
+  async findAll() {
+    const favorites = await this.favoriteRepository.find();
+    const tracksArray = await this.tracksService.findAll();
+    const artistsArray = await this.artistsService.findAll();
+    const albumsArray = await this.albumsService.findAll();
+    const trackIds = arrayIds(favorites, attributes.tracks);
+    const artistIds = arrayIds(favorites, attributes.artists);
+    const albumIds = arrayIds(favorites, attributes.albums);
+    const tracks = tracksArray.filter((track) => trackIds.includes(track.id));
+    const artists = artistsArray.filter((artist) =>
+      artistIds.includes(artist.id),
+    );
+    const albums = albumsArray.filter((album) => albumIds.includes(album.id));
+
+    return { tracks, artists, albums };
   }
 
-  addAttribute(attribute: string, id: string): void {
+  async addAttribute(attribute: string, id: string) {
+    if (!validate(id)) throw new BadRequestException('Invalid ID');
     switch (attribute) {
       case 'track':
-        if (!validate(id)) throw new BadRequestException('Invalid ID');
-        const track = db.tracks.getTrack(id);
+        await this.tracksService.checkTrack(id);
+        const createdTrack = this.favoriteRepository.create({
+          id,
+          tracks: id,
+        });
+        return (await this.favoriteRepository.save(createdTrack)).toFavorite();
+      case 'album':
+        await this.albumsService.checkAlbum(id);
+
+        const createdAlbum = this.favoriteRepository.create({
+          id,
+          albums: id,
+        });
+        return (await this.favoriteRepository.save(createdAlbum)).toFavorite();
+      case 'artist':
+        await this.artistsService.checkArtist(id);
+        const createdArtist = this.favoriteRepository.create({
+          id,
+          artists: id,
+        });
+        return (await this.favoriteRepository.save(createdArtist)).toFavorite();
+      default:
+        throw new NotFoundException(`Attribute ${attribute} not found`);
+    }
+  }
+
+  async deleteAttribute(attribute: string, id: string) {
+    if (!validate(id)) throw new BadRequestException('Invalid ID');
+    switch (attribute) {
+      case 'track':
+        const track = await this.favoriteRepository.findOneBy({
+          tracks: id,
+        });
         if (!track)
           throw new UnprocessableEntityException(`Track ${id} not found`);
-        db.favorites.addFavorite('tracks', id);
-        break;
-      case 'album':
-        if (!validate(id)) throw new BadRequestException('Invalid ID');
-        const album = db.albums.getAlbum(id);
-        if (!album)
-          throw new UnprocessableEntityException(`Album ${id} not found`);
-        db.favorites.addFavorite('albums', id);
-        break;
+        return await this.favoriteRepository.delete(track.id);
       case 'artist':
-        if (!validate(id)) throw new BadRequestException('Invalid ID');
-        const artist = db.artists.getArtist(id);
+        const artist = await this.favoriteRepository.findOneBy({
+          artists: id,
+        });
         if (!artist)
           throw new UnprocessableEntityException(`Artist ${id} not found`);
-        db.favorites.addFavorite('artists', id);
-        break;
+        return await this.favoriteRepository.delete(artist.id);
+      case 'album':
+        const album = await this.favoriteRepository.findOneBy({
+          albums: id,
+        });
+        if (!album)
+          throw new UnprocessableEntityException(`Album ${id} not found`);
+        return await this.favoriteRepository.delete(album.id);
       default:
         throw new NotFoundException(`Attribute ${attribute} not found`);
-        break;
     }
   }
 
-  deleteAttribute(attribute: string, id: string): void {
-    switch (attribute) {
-      case 'track':
-        if (!validate(id)) throw new BadRequestException('Invalid ID');
-        const trackExist = db.tracks.getTrack(id);
-        if (!trackExist) throw new NotFoundException(`Track ${id} not found`);
-        db.favorites.deleteFavorite('tracks', id);
-        break;
-      case 'artist':
-        if (!validate(id)) throw new BadRequestException('Invalid ID');
-        const artistExist = db.artists.getArtist(id);
-        if (!artistExist) throw new NotFoundException(`Artist ${id} not found`);
-        db.favorites.deleteFavorite('artists', id);
-        break;
-      case 'album':
-        if (!validate(id)) throw new BadRequestException('Invalid ID');
-        const albumExist = db.albums.getAlbum(id);
-        if (!albumExist) throw new NotFoundException(`Album ${id} not found`);
-        db.favorites.deleteFavorite('albums', id);
-        break;
-      default:
-        throw new NotFoundException(`Attribute ${attribute} not found`);
-        break;
-    }
+  async deleteId(id: string) {
+    if (!validate(id)) throw new BadRequestException('Invalid ID');
+    const favorite = await this.favoriteRepository.findOneBy({ id });
+    if (!favorite)
+      throw new UnprocessableEntityException(`Favorite ${id} not found`);
+    return await this.favoriteRepository.delete(favorite.id);
   }
 }
