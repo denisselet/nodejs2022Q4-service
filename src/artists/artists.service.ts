@@ -2,58 +2,78 @@ import {
   BadRequestException,
   Injectable,
   NotFoundException,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import { CreateArtistDto } from './dto/create-artist.dto';
 import { UpdateArtistDto } from './dto/update-artist.dto';
-import { Artist } from './entities/artist.entity';
+import { Artist, ArtistEntity } from './entities/artist.entity';
 import { validate } from 'uuid';
 import { v4 as uuidv4 } from 'uuid';
-import { db } from 'src/store/db';
+import { Repository } from 'typeorm';
+import { InjectRepository } from '@nestjs/typeorm';
+import { TracksService } from 'src/tracks/tracks.service';
+import { AlbumsService } from 'src/albums/albums.service';
 
 @Injectable()
 export class ArtistsService {
-  create(createArtistDto: CreateArtistDto): Artist {
+  constructor(
+    @InjectRepository(ArtistEntity)
+    private artistsRepository: Repository<ArtistEntity>,
+
+    private tracksService: TracksService,
+    private albumsService: AlbumsService, // private favoritesService: FavoritesService,
+  ) {}
+  async create(createArtistDto: CreateArtistDto): Promise<Artist> {
     const id = uuidv4();
-    db.artists.addArtist({ ...createArtistDto, id });
-    return { ...createArtistDto, id };
+    const createdArtist = this.artistsRepository.create({
+      ...createArtistDto,
+      id,
+    });
+    return (await this.artistsRepository.save(createdArtist)).toArtist();
   }
 
-  findAll(): Artist[] {
-    return db.artists.getArtists();
+  async findAll(): Promise<Artist[]> {
+    const artists = await this.artistsRepository.find();
+    return artists.map((artist) => artist.toArtist());
   }
 
-  findOne(id: string): Artist {
-    if (!validate(id)) throw new BadRequestException('Invalid id');
-    const artist = db.artists.getArtist(id);
+  async findOne(id: string) {
+    if (!validate(id)) {
+      throw new BadRequestException('Invalid id');
+    }
+    const artist = await this.artistsRepository.findOne({ where: { id } });
     if (!artist) throw new NotFoundException(`Artist with id ${id} not found`);
-    return artist;
+    return artist.toArtist();
   }
 
-  update(id: string, updateArtistDto: UpdateArtistDto): Artist {
-    const artist = this.findOne(id);
-    db.artists.updateArtist(id, { ...artist, ...updateArtistDto });
-    return { ...artist, ...updateArtistDto };
+  async update(id: string, updateArtistDto: UpdateArtistDto): Promise<Artist> {
+    if (!validate(id)) throw new BadRequestException('Invalid id');
+    const artist = await this.artistsRepository.findOne({ where: { id } });
+    if (!artist) throw new NotFoundException(`Artist with id ${id} not found`);
+    Object.assign(artist, updateArtistDto);
+    return (await this.artistsRepository.save(artist)).toArtist();
   }
 
-  remove(id: string): void {
-    const tracks = db.tracks.getTracks();
-    const albums = db.albums.getAlbums();
-    const tracksWithArtist = tracks.filter((track) => track.artistId === id);
-    const albumsWithArtist = albums.filter((album) => album.artistId === id);
+  async remove(id: string): Promise<void> {
+    if (!validate(id)) {
+      throw new BadRequestException('Invalid id');
+    }
+    const artist = await this.artistsRepository.findOne({ where: { id } });
+    if (!artist) throw new NotFoundException(`Artist with id ${id} not found`);
 
-    if (tracksWithArtist)
-      for (const track of tracksWithArtist) {
-        db.tracks.updateTrack(track.id, { ...track, artistId: null });
-      }
-    if (albumsWithArtist)
-      for (const album of albumsWithArtist) {
-        db.albums.updateAlbum(album.id, { ...album, artistId: null });
-      }
+    await this.tracksService.deleteArtistFromTrack(id);
+    await this.albumsService.deleteArtistFromAlbum(id);
 
-    const favorites = db.favorites.getFavoritesIds();
-    if (favorites.artists.includes(id))
-      db.favorites.deleteFavorite('artists', id);
-    this.findOne(id);
-    db.artists.deleteArtist(id);
+    // await this.favoritesService.deleteId(id);
+
+    const deleteArtist = await this.artistsRepository.delete(id);
+    if (deleteArtist.affected === 0)
+      throw new NotFoundException(`Artist with id ${id} not found`);
+  }
+
+  async checkArtist(id: string) {
+    const artist = await this.artistsRepository.findOne({ where: { id } });
+    if (!artist)
+      throw new UnprocessableEntityException(`Track with id ${id} not found`);
   }
 }
