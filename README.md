@@ -1,3 +1,32 @@
+# run db(for linux)
+
+```
+npm ci
+```
+up db
+```
+npx typeorm-ts-node-esm migration:run -d src/ormconfig.ts
+```
+down db
+```
+npx typeorm-ts-node-esm migration:revert -d src/ormconfig.ts
+```
+
+
+
+```
+   sudo docker-compose up
+```
+enter http://127.0.0.1:5050/
+login postgres@postgres.com
+pass postgres
+
+
+
+
+
+
+
 # Home Library Service
 
 ## Prerequisites
