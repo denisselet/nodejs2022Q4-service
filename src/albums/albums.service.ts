@@ -2,52 +2,83 @@ import {
   BadRequestException,
   Injectable,
   NotFoundException,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import { CreateAlbumDto } from './dto/create-album.dto';
 import { UpdateAlbumDto } from './dto/update-album.dto';
 import { Album } from './entities/album.entity';
 import { v4 as uuidv4 } from 'uuid';
 import { validate } from 'uuid';
-import { db } from 'src/store/db';
+import { AlbumEntity } from './entities/album.entity';
+import { Repository } from 'typeorm';
+import { InjectRepository } from '@nestjs/typeorm';
+import { TracksService } from 'src/tracks/tracks.service';
 
 @Injectable()
 export class AlbumsService {
-  create(createAlbumDto: CreateAlbumDto): Album {
+  constructor(
+    @InjectRepository(AlbumEntity)
+    private albumsRepository: Repository<AlbumEntity>,
+
+    private tracksService: TracksService, // private favoritesService: FavoritesService,
+  ) {}
+  async create(createAlbumDto: CreateAlbumDto): Promise<Album> {
     const id = uuidv4();
-    db.albums.addAlbum({ artistId: null, ...createAlbumDto, id });
-    return { artistId: null, ...createAlbumDto, id };
+    const createdAlbum = this.albumsRepository.create({
+      artistId: null,
+      ...createAlbumDto,
+      id,
+    });
+    return (await this.albumsRepository.save(createdAlbum)).toAlbum();
   }
 
-  findAll(): Album[] {
-    return db.albums.getAlbums();
+  async findAll(): Promise<Album[]> {
+    const albums = await this.albumsRepository.find();
+    return albums.map((album) => album.toAlbum());
   }
 
-  findOne(id: string): Album {
-    if (!validate(id)) throw new BadRequestException('Invalid id');
-    const album = db.albums.getAlbum(id);
+  async findOne(id: string): Promise<Album | Error> {
+    if (!validate(id)) {
+      throw new BadRequestException('Invalid id');
+    }
+    const album = await this.albumsRepository.findOne({ where: { id } });
     if (!album) throw new NotFoundException(`Album with id ${id} not found`);
 
-    return album;
+    return album.toAlbum();
   }
 
-  update(id: string, updateAlbumDto: UpdateAlbumDto): Album {
-    const album = this.findOne(id);
-    db.albums.updateAlbum(id, { ...album, ...updateAlbumDto });
-    return { ...album, ...updateAlbumDto };
+  async update(id: string, updateAlbumDto: UpdateAlbumDto): Promise<Album> {
+    if (!validate(id)) throw new BadRequestException('Invalid id');
+    const album = await this.albumsRepository.findOne({ where: { id } });
+    if (!album) throw new NotFoundException(`Album with id ${id} not found`);
+    Object.assign(album, updateAlbumDto);
+    return (await this.albumsRepository.save(album)).toAlbum();
   }
 
-  remove(id: string): void {
-    const tracks = db.tracks.getTracks();
-    const tracksWithAlbumId = tracks.filter((track) => track.albumId === id);
-    if (tracksWithAlbumId)
-      for (const track of tracksWithAlbumId) {
-        db.tracks.updateTrack(track.id, { ...track, albumId: null });
-      }
-    const favorites = db.favorites.getFavoritesIds();
-    if (favorites.albums.includes(id))
-      db.favorites.deleteFavorite('albums', id);
+  async remove(id: string): Promise<void> {
+    if (!validate(id)) {
+      throw new BadRequestException('Invalid id');
+    }
+    const album = await this.albumsRepository.findOne({ where: { id } });
+    if (!album) throw new NotFoundException(`Album with id ${id} not found`);
 
-    this.findOne(id);
-    db.albums.deleteAlbum(id);
+    await this.tracksService.deleteAlbumFromTrack(id);
+    const deleteAlbum = await this.albumsRepository.delete(id);
+    if (deleteAlbum.affected === 0)
+      throw new NotFoundException(`Album with id ${id} not found`);
+  }
+
+  async deleteArtistFromAlbum(artistId: string): Promise<void> {
+    const albums = await this.albumsRepository.find({ where: { artistId } });
+    for (const album of albums) {
+      album.artistId = null;
+      await this.albumsRepository.save(album);
+    }
+  }
+
+  async checkAlbum(id: string) {
+    const album = await this.albumsRepository.findOne({ where: { id } });
+    if (!album)
+      throw new UnprocessableEntityException(`Track with id ${id} not found`);
   }
 }

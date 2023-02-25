@@ -1,3 +1,26 @@
+
+install dependencies
+```
+npm i
+```
+
+
+docker compose
+```
+docker-compose up
+```
+
+scan
+```
+npm run docker:scan
+```
+
+docker hub
+```
+docker pull den8rr/node:latest
+docker pull den8rr/postgres:latest
+```
+
 # Home Library Service
 
 ## Prerequisites
