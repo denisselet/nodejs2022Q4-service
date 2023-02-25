@@ -17,8 +17,8 @@ npm run docker:scan
 
 docker hub
 ```
-docker pull den8rr/verse_gapminder1:firsttry
-docker pull den8rr/verse_gapminder1:secondtry
+docker pull den8rr/node:latest
+docker pull den8rr/postgres:latest
 ```
 
 # Home Library Service
