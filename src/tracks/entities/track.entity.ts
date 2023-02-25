@@ -17,10 +17,10 @@ export class TrackEntity {
   name: string;
 
   @Column()
-  artistId: string;
+  artistId: string | null;
 
   @Column()
-  albumId: string;
+  albumId: string | null;
 
   @Column()
   duration: number;
