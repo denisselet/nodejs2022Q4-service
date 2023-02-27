@@ -7,6 +7,7 @@ import { FavoritesModule } from './favorites/favorites.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule } from '@nestjs/config';
 import ConfigService from './ormconfig';
+import { MyLogger } from './logger/logger.service';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import ConfigService from './ormconfig';
     TypeOrmModule.forRoot(ConfigService),
   ],
   controllers: [],
-  providers: [],
+  providers: [MyLogger],
+  exports: [MyLogger],
 })
 export class AppModule {}
