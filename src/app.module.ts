@@ -8,6 +8,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule } from '@nestjs/config';
 import ConfigService from './ormconfig';
 import { MyLogger } from './logger/logger.service';
+import { AuthModule } from './auth/auth.module';
 
 @Module({
   imports: [
@@ -21,8 +22,8 @@ import { MyLogger } from './logger/logger.service';
       envFilePath: '../.env',
     }),
     TypeOrmModule.forRoot(ConfigService),
+    AuthModule,
   ],
-  controllers: [],
   providers: [MyLogger],
   exports: [MyLogger],
 })

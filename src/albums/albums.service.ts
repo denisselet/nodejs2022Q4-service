@@ -20,8 +20,9 @@ export class AlbumsService {
     @InjectRepository(AlbumEntity)
     private albumsRepository: Repository<AlbumEntity>,
 
-    private tracksService: TracksService, // private favoritesService: FavoritesService,
+    private tracksService: TracksService,
   ) {}
+
   async create(createAlbumDto: CreateAlbumDto): Promise<Album> {
     const id = uuidv4();
     const createdAlbum = this.albumsRepository.create({
