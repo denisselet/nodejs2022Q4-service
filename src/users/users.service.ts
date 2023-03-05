@@ -76,4 +76,8 @@ export class UsersService {
       throw new NotFoundException(`User with id ${id} not found`);
     }
   }
+
+  async findLogin(login: string) {
+    return await this.usersRepository.findOneBy({ login });
+  }
 }
